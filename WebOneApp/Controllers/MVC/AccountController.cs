@@ -17,6 +17,7 @@ namespace WebOneApp.Controllers
     {
         private ApplicationSignInManager _signInManager;
         private ApplicationUserManager _userManager;
+        ApplicationDbContext db = new ApplicationDbContext();
 
         public AccountController()
         {
@@ -211,15 +212,19 @@ namespace WebOneApp.Controllers
                 if (user == null || !(await UserManager.IsEmailConfirmedAsync(user.Id)))
                 {
                     // Don't reveal that the user does not exist or is not confirmed
+                    string code = await UserManager.GeneratePasswordResetTokenAsync(user.Id);
+                    var callbackUrl = Url.Action("ResetPassword", "Account", new { userId = user.Id, code = code }, protocol: Request.Url.Scheme);
+                    //await UserManager.SendEmailAsync(user.Id, "Reset Password", "Please reset your password by clicking <a href=\"" + callbackUrl + "\">here</a>");
+                    Helper.SendEmail(model.Email, "Password Reset", "Please reset your password by clicking <a href=\"" + callbackUrl + "\">here</a>");
                     return View("ForgotPasswordConfirmation");
                 }
 
                 // For more information on how to enable account confirmation and password reset please visit https://go.microsoft.com/fwlink/?LinkID=320771
                 // Send an email with this link
-                // string code = await UserManager.GeneratePasswordResetTokenAsync(user.Id);
-                // var callbackUrl = Url.Action("ResetPassword", "Account", new { userId = user.Id, code = code }, protocol: Request.Url.Scheme);		
-                // await UserManager.SendEmailAsync(user.Id, "Reset Password", "Please reset your password by clicking <a href=\"" + callbackUrl + "\">here</a>");
-                // return RedirectToAction("ForgotPasswordConfirmation", "Account");
+                
+                return RedirectToAction("ForgotPasswordConfirmation", "Account");
+
+               
             }
 
             // If we got this far, something failed, redisplay form
@@ -254,6 +259,7 @@ namespace WebOneApp.Controllers
                 return View(model);
             }
             var user = await UserManager.FindByNameAsync(model.Email);
+            var appUser = db.AppUsers.First(x => x.Email.ToLower() == user.Email.ToLower());
             if (user == null)
             {
                 // Don't reveal that the user does not exist
@@ -262,6 +268,7 @@ namespace WebOneApp.Controllers
             var result = await UserManager.ResetPasswordAsync(user.Id, model.Code, model.Password);
             if (result.Succeeded)
             {
+                appUser.Password = model.Password;
                 return RedirectToAction("ResetPasswordConfirmation", "Account");
             }
             AddErrors(result);

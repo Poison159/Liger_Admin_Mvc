@@ -7,6 +7,7 @@ using System.Data.Entity.Migrations;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Net.Mail;
 using System.Web;
 
 namespace WebOneApp.Models
@@ -20,6 +21,41 @@ namespace WebOneApp.Models
             db.Tokens.Add(token);
             db.SaveChanges();
             return token;
+        }
+
+        public static void SendEmail(string userEmailAddress, string reservationSubject, string reservationMessage)
+        {
+            string smtpHost = System.Configuration.ConfigurationManager.AppSettings["smtpHost"];
+            int smtpPort = int.Parse(System.Configuration.ConfigurationManager.AppSettings["smtpPort"]);
+            int timeout = int.Parse(System.Configuration.ConfigurationManager.AppSettings["smtpTimeout"]);
+
+            var systemFromAddress = System.Configuration.ConfigurationManager.AppSettings["fromAddress"];
+            var systemFromAddressPassword = System.Configuration.ConfigurationManager.AppSettings["fromAddressPassword"];
+            var systemFromAddressName = System.Configuration.ConfigurationManager.AppSettings["fromAddressName"];
+
+            var fromAddress = new MailAddress(systemFromAddress, systemFromAddressName);
+            var toAddress = new MailAddress(userEmailAddress);
+
+            string subject = reservationSubject;
+            string body = reservationMessage;
+
+            var smtp = new SmtpClient
+            {
+                Host = smtpHost,
+                Port = smtpPort,
+                EnableSsl = true,
+                DeliveryMethod = SmtpDeliveryMethod.Network,
+                Credentials = new NetworkCredential(fromAddress.Address, systemFromAddressPassword),
+                Timeout = timeout
+            };
+            using (var message = new MailMessage(fromAddress, toAddress)
+            {
+                Subject = subject,
+                Body = body
+            })
+            {
+                smtp.Send(message);
+            }
         }
 
         internal static void removeDomain(List<BranchMeal> meals, ApplicationDbContext db)

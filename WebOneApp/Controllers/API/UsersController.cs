@@ -48,8 +48,8 @@ namespace WebOneApp.Controllers.API
 
 
         [Route("api/RegisterUser")]
-        [HttpGet]
-        public object RegisterUser(string name, string email, string mobileNumber, string password)
+        [HttpPost]
+        public object RegisterUser([FromBody]FormDetails form)
         {
             var UserManager = new UserManager<ApplicationUser>(new UserStore<ApplicationUser>(db));
             UserManager.UserValidator = new UserValidator<ApplicationUser>(UserManager)
@@ -59,10 +59,10 @@ namespace WebOneApp.Controllers.API
             };
             var user = new ApplicationUser();
 
-            user.Email = email.ToLower().Trim();
-            user.UserName = email.ToLower().Trim();
-            var result = UserManager.Create(user, password);
-            var appUser = new AppUser() { Name = name, Email = email.ToLower().Trim(), MobileNumber = "0" };
+            user.Email = form.email.ToLower().Trim();
+            user.UserName = form.email.ToLower().Trim();
+            var result = UserManager.Create(user, form.password);
+            var appUser = new AppUser() { Name = form.name, Email = form.email.ToLower().Trim(), MobileNumber = "0" };
             if (result.Succeeded)
             {
                 var token = Helper.saveAppUserAndToken(appUser, db);
@@ -92,19 +92,18 @@ namespace WebOneApp.Controllers.API
         }
 
         [Route("api/CheckToken")]
-        [HttpGet]
-        public object getToken(string email, string password)
+        [HttpPost]
+        public object getToken([FromBody]FormDetails form)
         {
             var userStore = new UserStore<IdentityUser>();
             var userManager = new UserManager<IdentityUser>(userStore);
             ApplicationUser user = null;
             AppUser appUser = null;
 
-
             try
             {
-                appUser = db.AppUsers.First(x => x.Email.ToLower().Trim() == email.ToLower().Trim());
-                user = db.Users.First(x => x.Email.ToLower().Trim() == email.ToLower().Trim());
+                appUser = db.AppUsers.First(x => x.Email.ToLower().Trim() == form.email.ToLower().Trim());
+                user = db.Users.First(x => x.Email.ToLower().Trim() == form.email.ToLower().Trim());
                 if (String.IsNullOrEmpty(appUser.MobileNumber))
                 {
                     appUser.MobileNumber = "0";
@@ -116,10 +115,10 @@ namespace WebOneApp.Controllers.API
             }
             if (user != null)
             {
-                var isMatch = userManager.CheckPassword(user, password);
+                var isMatch = userManager.CheckPassword(user, form.password);
                 if (isMatch)
                 {
-                    var token = db.Tokens.ToList().First(x => x._userId.ToLower().Trim() == email.ToLower().Trim());
+                    var token = db.Tokens.ToList().First(x => x._userId.ToLower().Trim() == form.email.ToLower().Trim());
                     if (token != null)
                     {
                         token._grantDate = DateTime.Now;
@@ -144,10 +143,11 @@ namespace WebOneApp.Controllers.API
         }
 
         [Route("api/UserLogin")]
-        public IHttpActionResult UserLogin(string name, string email, string mobileNumber, string password)
+        [HttpPost]
+        public IHttpActionResult UserLogin([FromBody]AppUser formUser)
         {
             //Check if user exists
-            var encryptedPassword = EncryptPassword(password);
+            var encryptedPassword = EncryptPassword(formUser.Password);
 
             var user = db.AppUsers.Where(x => x.Password == encryptedPassword).FirstOrDefault();
 
@@ -156,11 +156,11 @@ namespace WebOneApp.Controllers.API
                 return NotFound();
 
             //Check for changes
-            if (user.Name != name || user.Email != email || user.MobileNumber != mobileNumber)
+            if (user.Name != formUser.Name || user.Email != formUser.Email || user.MobileNumber != formUser.MobileNumber)
             {
-                user.Name = name;
-                user.Email = email;
-                user.MobileNumber = mobileNumber;
+                user.Name = formUser.Name;
+                user.Email = formUser.Email;
+                user.MobileNumber = formUser.MobileNumber;
             }
 
             db.SaveChanges();
